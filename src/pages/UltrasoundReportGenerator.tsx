@@ -40,7 +40,7 @@ const examDefinitions: { [key: string]: ExamCategory[] } = {
       defaultNormalText: "Vesícula biliar de paredes finas, anecóica, sem cálculos ou dilatação de vias biliares.",
       findings: [
         { id: "vesiculaNormal", label: "Normal", alteredText: "Vesícula biliar de paredes finas, anecóica, sem cálculos ou dilatação de vias biliares.", conclusionText: "Vesícula biliar sem alterações." },
-        { id: "calculosVesicula", label: "Cálculos na vesícula biliar", hasQuantity: true, alteredText: "Presença de cálculos na vesícula biliar.", conclusionText: "Colelitíase." },
+        { id: "calculosVesicula", label: "Cálculos na vesícula biliar", requiresSize: true, hasQuantity: true, alteredText: "Presença de cálculos na vesícula biliar.", conclusionText: "Colelitíase." },
       ],
     },
     {
@@ -57,6 +57,8 @@ const examDefinitions: { [key: string]: ExamCategory[] } = {
       defaultNormalText: "Pâncreas com dimensões e ecotextura normais.",
       findings: [
         { id: "pancreasNormal", label: "Normal", alteredText: "Pâncreas com dimensões e ecotextura normais.", conclusionText: "Pâncreas sem alterações." },
+        { id: "cistoPancreatico", label: "Cisto pancreático", requiresSize: true, hasQuantity: true, alteredText: "Presença de cisto pancreático.", conclusionText: "Cisto pancreático." },
+        { id: "noduloPancreatico", label: "Nódulo pancreático", requiresSize: true, hasQuantity: true, alteredText: "Presença de nódulo pancreático.", conclusionText: "Nódulo pancreático." },
       ],
     },
     {
@@ -64,6 +66,8 @@ const examDefinitions: { [key: string]: ExamCategory[] } = {
       defaultNormalText: "Baço com dimensões e ecotextura normais.",
       findings: [
         { id: "bacoNormal", label: "Normal", alteredText: "Baço com dimensões e ecotextura normais.", conclusionText: "Baço sem alterações." },
+        { id: "esplenomegalia", label: "Esplenomegalia", alteredText: "Presença de esplenomegalia.", conclusionText: "Esplenomegalia." },
+        { id: "noduloBaco", label: "Nódulo esplênico", requiresSize: true, hasQuantity: true, alteredText: "Presença de nódulo esplênico.", conclusionText: "Nódulo esplênico." },
       ],
     },
     {
@@ -148,7 +152,7 @@ const examDefinitions: { [key: string]: ExamCategory[] } = {
       defaultNormalText: "Vesícula biliar de paredes finas, anecóica, sem cálculos ou dilatação de vias biliares.",
       findings: [
         { id: "abdSupVesiculaNormal", label: "Normal", alteredText: "Vesícula biliar de paredes finas, anecóica, sem cálculos ou dilatação de vias biliares.", conclusionText: "Vesícula biliar sem alterações." },
-        { id: "abdSupCalculosVesicula", label: "Cálculos na vesícula biliar", hasQuantity: true, alteredText: "Presença de cálculos na vesícula biliar.", conclusionText: "Colelitíase." },
+        { id: "abdSupCalculosVesicula", label: "Cálculos na vesícula biliar", requiresSize: true, hasQuantity: true, alteredText: "Presença de cálculos na vesícula biliar.", conclusionText: "Colelitíase." },
       ],
     },
     {
@@ -156,6 +160,8 @@ const examDefinitions: { [key: string]: ExamCategory[] } = {
       defaultNormalText: "Pâncreas com dimensões e ecotextura normais.",
       findings: [
         { id: "abdSupPancreasNormal", label: "Normal", alteredText: "Pâncreas com dimensões e ecotextura normais.", conclusionText: "Pâncreas sem alterações." },
+        { id: "abdSupCistoPancreatico", label: "Cisto pancreático", requiresSize: true, hasQuantity: true, alteredText: "Presença de cisto pancreático.", conclusionText: "Cisto pancreático." },
+        { id: "abdSupNoduloPancreatico", label: "Nódulo pancreático", requiresSize: true, hasQuantity: true, alteredText: "Presença de nódulo pancreático.", conclusionText: "Nódulo pancreático." },
       ],
     },
     {
@@ -163,6 +169,8 @@ const examDefinitions: { [key: string]: ExamCategory[] } = {
       defaultNormalText: "Baço com dimensões e ecotextura normais.",
       findings: [
         { id: "abdSupBacoNormal", label: "Normal", alteredText: "Baço com dimensões e ecotextura normais.", conclusionText: "Baço sem alterações." },
+        { id: "abdSupEsplenomegalia", label: "Esplenomegalia", alteredText: "Presença de esplenomegalia.", conclusionText: "Esplenomegalia." },
+        { id: "abdSupNoduloBaco", label: "Nódulo esplênico", requiresSize: true, hasQuantity: true, alteredText: "Presença de nódulo esplênico.", conclusionText: "Nódulo esplênico." },
       ],
     },
   ],
@@ -628,130 +636,136 @@ const UltrasoundReportGenerator = () => {
           {examType && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold mt-4">Achados do Exame</h3>
-              {currentExamCategories.map((category) => {
-                const normalFindingId = category.findings[0]?.id; // Assumindo que 'Normal' é sempre o primeiro achado
-                const isNormalChecked = currentFindingsState.get(normalFindingId)?.isChecked;
-                const hasOtherFindingsChecked = category.findings.some(f => f.id !== normalFindingId && currentFindingsState.get(f.id)?.isChecked);
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Layout flexível para categorias */}
+                {currentExamCategories.map((category) => {
+                  const normalFindingId = category.findings[0]?.id; // Assumindo que 'Normal' é sempre o primeiro achado
+                  const isNormalChecked = currentFindingsState.get(normalFindingId)?.isChecked;
+                  const hasOtherFindingsChecked = category.findings.some(f => f.id !== normalFindingId && currentFindingsState.get(f.id)?.isChecked);
 
-                return (
-                  <div key={category.name} className="space-y-2 border p-3 rounded-md">
-                    <p className="font-medium">{category.name}:</p>
-                    {category.findings.length > 0 ? (
-                      category.findings.map((finding) => {
-                        const state = currentFindingsState.get(finding.id);
-                        const isChecked = state?.isChecked || false;
-                        const size = state?.size || "";
-                        const laterality = state?.laterality || "";
-                        const quantity = state?.quantity || "";
-                        const instances = state?.instances || [];
+                  return (
+                    <div key={category.name} className="space-y-2 border p-3 rounded-md">
+                      <p className="font-medium">{category.name}:</p>
+                      {category.findings.length > 0 ? (
+                        category.findings.map((finding) => {
+                          const state = currentFindingsState.get(finding.id);
+                          const isChecked = state?.isChecked || false;
+                          const size = state?.size || "";
+                          const laterality = state?.laterality || "";
+                          const quantity = state?.quantity || "";
+                          const instances = state?.instances || [];
 
-                        // Apenas mostrar 'Normal' se nenhum outro achado estiver marcado, ou se ele estiver marcado
-                        if (finding.id === normalFindingId && hasOtherFindingsChecked && !isChecked) {
-                          return null;
-                        }
+                          // Apenas mostrar 'Normal' se nenhum outro achado estiver marcado, ou se ele estiver marcado
+                          if (finding.id === normalFindingId && hasOtherFindingsChecked && !isChecked) {
+                            return null;
+                          }
 
-                        return (
-                          <div key={finding.id} className="flex flex-wrap items-center gap-2 ml-2">
-                            <Checkbox
-                              id={finding.id}
-                              checked={isChecked}
-                              onCheckedChange={(checked) =>
-                                handleCheckboxChange(finding.id, checked as boolean)
-                              }
-                            />
-                            <Label htmlFor={finding.id} className="flex-1 min-w-[120px]">
-                              {finding.label}
-                            </Label>
-                            {isChecked && (
-                              <>
-                                {finding.hasQuantity ? (
-                                  <div className="flex flex-col gap-2 w-full">
-                                    <Input
-                                      type="number"
-                                      placeholder="Qtd."
-                                      value={quantity}
-                                      onChange={(e) => handleQuantityChange(finding.id, e.target.value)}
-                                      className="w-20"
-                                      min="1"
-                                    />
-                                    {instances.map((instance, idx) => (
-                                      <div key={idx} className="flex items-center gap-2 ml-4">
-                                        <span className="text-sm text-gray-600">Item {idx + 1}:</span>
-                                        {finding.hasLaterality && (
-                                          <Select
-                                            value={instance.laterality}
-                                            onValueChange={(value) =>
-                                              handleInstanceDetailChange(finding.id, idx, 'laterality', value)
-                                            }
-                                          >
-                                            <SelectTrigger className="w-[120px]">
-                                              <SelectValue placeholder="Lado" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="Direito">Direito</SelectItem>
-                                              <SelectItem value="Esquerdo">Esquerdo</SelectItem>
-                                              <SelectItem value="Ambos">Ambos</SelectItem>
-                                            </SelectContent>
-                                          </Select>
-                                        )}
-                                        {finding.requiresSize && (
-                                          <Input
-                                            type="text"
-                                            placeholder="Tamanho (mm)"
-                                            value={instance.size}
-                                            onChange={(e) =>
-                                              handleInstanceDetailChange(finding.id, idx, 'size', e.target.value)
-                                            }
-                                            className="w-32"
-                                          />
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  // Lógica existente para achados de instância única
-                                  <>
-                                    {finding.hasLaterality && (
-                                      <Select
-                                        value={laterality}
-                                        onValueChange={(value) =>
-                                          handleSingleDetailChange(finding.id, 'laterality', value)
-                                        }
-                                      >
-                                        <SelectTrigger className="w-[120px]">
-                                          <SelectValue placeholder="Lado" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="Direito">Direito</SelectItem>
-                                          <SelectItem value="Esquerdo">Esquerdo</SelectItem>
-                                          <SelectItem value="Ambos">Ambos</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    )}
-                                    {finding.requiresSize && (
-                                      <Input
-                                        type="text"
-                                        placeholder="Tamanho (mm)"
-                                        value={size}
-                                        onChange={(e) =>
-                                          handleSingleDetailChange(finding.id, 'size', e.target.value)
-                                        }
-                                        className="w-32"
-                                      />
-                                    )}
-                                  </>
+                          return (
+                            <div key={finding.id} className="flex flex-col gap-2 ml-2">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  id={finding.id}
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) =>
+                                    handleCheckboxChange(finding.id, checked as boolean)
+                                  }
+                                />
+                                <Label htmlFor={finding.id} className="flex-1">
+                                  {finding.label}
+                                </Label>
+                                {isChecked && finding.hasQuantity && (
+                                  <Input
+                                    type="number"
+                                    placeholder="Qtd."
+                                    value={quantity}
+                                    onChange={(e) => handleQuantityChange(finding.id, e.target.value)}
+                                    className="w-20"
+                                    min="1"
+                                  />
                                 )}
-                              </>
-                            )}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-sm text-gray-500 ml-2">Nenhum achado específico para esta categoria.</p>
-                    )}
-                  </div>
-                );
-              })}
+                              </div>
+                              {isChecked && (
+                                <>
+                                  {finding.hasQuantity ? (
+                                    <div className="flex flex-col gap-2 pl-6"> {/* Indent instances */}
+                                      {instances.map((instance, idx) => (
+                                        <div key={idx} className="flex flex-wrap items-center gap-2">
+                                          <span className="text-sm text-gray-600">Item {idx + 1}:</span>
+                                          {finding.hasLaterality && (
+                                            <Select
+                                              value={instance.laterality}
+                                              onValueChange={(value) =>
+                                                handleInstanceDetailChange(finding.id, idx, 'laterality', value)
+                                              }
+                                            >
+                                              <SelectTrigger className="w-[120px]">
+                                                <SelectValue placeholder="Lado" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="Direito">Direito</SelectItem>
+                                                <SelectItem value="Esquerdo">Esquerdo</SelectItem>
+                                                <SelectItem value="Ambos">Ambos</SelectItem>
+                                              </SelectContent>
+                                            </Select>
+                                          )}
+                                          {finding.requiresSize && (
+                                            <Input
+                                              type="text"
+                                              placeholder="Tamanho (mm)"
+                                              value={instance.size}
+                                              onChange={(e) =>
+                                                handleInstanceDetailChange(finding.id, idx, 'size', e.target.value)
+                                              }
+                                              className="w-32"
+                                            />
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    // Lógica existente para achados de instância única
+                                    <div className="flex flex-wrap items-center gap-2 pl-6"> {/* Indent single instance details */}
+                                      {finding.hasLaterality && (
+                                        <Select
+                                          value={laterality}
+                                          onValueChange={(value) =>
+                                            handleSingleDetailChange(finding.id, 'laterality', value)
+                                          }
+                                        >
+                                          <SelectTrigger className="w-[120px]">
+                                            <SelectValue placeholder="Lado" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="Direito">Direito</SelectItem>
+                                            <SelectItem value="Esquerdo">Esquerdo</SelectItem>
+                                            <SelectItem value="Ambos">Ambos</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      )}
+                                      {finding.requiresSize && (
+                                        <Input
+                                          type="text"
+                                          placeholder="Tamanho (mm)"
+                                          value={size}
+                                          onChange={(e) =>
+                                            handleSingleDetailChange(finding.id, 'size', e.target.value)
+                                          }
+                                          className="w-32"
+                                        />
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-sm text-gray-500 ml-2">Nenhum achado específico para esta categoria.</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
