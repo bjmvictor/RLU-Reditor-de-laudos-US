@@ -1,11 +1,213 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { MadeWithDyad } from "@/components/made-with-dyad";
+
+interface FindingDefinition {
+  id: string;
+  label: string;
+  requiresSize?: boolean;
+  alteredText: string; // Text to use if this finding is checked
+  conclusionText?: string; // Specific text for conclusion if this finding is present
+}
+
+interface ExamCategory {
+  name: string;
+  defaultNormalText: string; // Text to use if no findings are checked for this category
+  findings: FindingDefinition[];
+}
+
+const examDefinitions: { [key: string]: ExamCategory[] } = {
+  "Ultrassom Abdominal Total": [
+    {
+      name: "Fígado",
+      defaultNormalText: "Fígado com dimensões e ecotextura normais.",
+      findings: [
+        {
+          id: "esteatoseHepatica",
+          label: "Esteatose hepática",
+          alteredText: "Presença de esteatose hepática.",
+          conclusionText: "Esteatose hepática.",
+        },
+        {
+          id: "noduloHepatico",
+          label: "Nódulo hepático",
+          requiresSize: true,
+          alteredText: "Presença de nódulo hepático.",
+          conclusionText: "Nódulo hepático.",
+        },
+      ],
+    },
+    {
+      name: "Vesícula Biliar",
+      defaultNormalText: "Vesícula biliar de paredes finas, anecóica, sem cálculos ou dilatação de vias biliares.",
+      findings: [
+        {
+          id: "calculosVesicula",
+          label: "Cálculos na vesícula biliar",
+          alteredText: "Presença de cálculos na vesícula biliar.",
+          conclusionText: "Colelitíase.",
+        },
+      ],
+    },
+    {
+      name: "Rins",
+      defaultNormalText: "Rins com dimensões, contornos e ecotextura normais, sem dilatação do sistema coletor ou cálculos.",
+      findings: [
+        {
+          id: "cistoRenal",
+          label: "Cisto renal",
+          requiresSize: true,
+          alteredText: "Presença de cisto renal.",
+          conclusionText: "Cisto renal.",
+        },
+        {
+          id: "calculoRenal",
+          label: "Cálculo renal",
+          requiresSize: true,
+          alteredText: "Presença de cálculo renal.",
+          conclusionText: "Nefrolitíase.",
+        },
+      ],
+    },
+    {
+      name: "Pâncreas",
+      defaultNormalText: "Pâncreas com dimensões e ecotextura normais.",
+      findings: [],
+    },
+    {
+      name: "Baço",
+      defaultNormalText: "Baço com dimensões e ecotextura normais.",
+      findings: [],
+    },
+    {
+      name: "Líquido Livre",
+      defaultNormalText: "Ausência de líquido livre na cavidade.",
+      findings: [
+        {
+          id: "liquidoLivreCavidade",
+          label: "Líquido livre na cavidade",
+          alteredText: "Presença de líquido livre na cavidade.",
+          conclusionText: "Líquido livre na cavidade.",
+        },
+      ],
+    },
+  ],
+  "Ultrassom de Tireoide": [
+    {
+      name: "Tireoide",
+      defaultNormalText: "Tireoide com dimensões e ecotextura normais.",
+      findings: [
+        {
+          id: "noduloTireoidiano",
+          label: "Nódulo tireoidiano",
+          requiresSize: true,
+          alteredText: "Presença de nódulo tireoidiano.",
+          conclusionText: "Nódulo tireoidiano.",
+        },
+        {
+          id: "cistoTireoidiano",
+          label: "Cisto tireoidiano",
+          requiresSize: true,
+          alteredText: "Presença de cisto tireoidiano.",
+          conclusionText: "Cisto tireoidiano.",
+        },
+        {
+          id: "tireoidite",
+          label: "Sinais de tireoidite",
+          alteredText: "Sinais ultrassonográficos de tireoidite.",
+          conclusionText: "Sinais de tireoidite.",
+        },
+      ],
+    },
+  ],
+  "Ultrassom Pélvico": [
+    {
+      name: "Útero",
+      defaultNormalText: "Útero em anteversoflexão, com dimensões e ecotextura normais.",
+      findings: [
+        {
+          id: "miomaUterino",
+          label: "Mioma uterino",
+          requiresSize: true,
+          alteredText: "Presença de mioma uterino.",
+          conclusionText: "Mioma uterino.",
+        },
+      ],
+    },
+    {
+      name: "Ovários",
+      defaultNormalText: "Ovários com dimensões e ecotextura normais, sem formações císticas ou sólidas.",
+      findings: [
+        {
+          id: "cistoOvariano",
+          label: "Cisto ovariano",
+          requiresSize: true,
+          alteredText: "Presença de cisto ovariano.",
+          conclusionText: "Cisto ovariano.",
+        },
+      ],
+    },
+    {
+      name: "Endométrio",
+      defaultNormalText: "Endométrio com espessura normal para a fase do ciclo.",
+      findings: [
+        {
+          id: "endometrioAlterado",
+          label: "Endométrio com espessura alterada ou irregularidades",
+          alteredText: "Endométrio com espessura alterada ou irregularidades.",
+          conclusionText: "Alteração endometrial.",
+        },
+      ],
+    },
+    {
+      name: "Líquido Livre na Pelve",
+      defaultNormalText: "Ausência de líquido livre na pelve.",
+      findings: [
+        {
+          id: "liquidoLivrePelvico",
+          label: "Líquido livre na pelve",
+          alteredText: "Presença de líquido livre na pelve.",
+          conclusionText: "Líquido livre na pelve.",
+        },
+      ],
+    },
+  ],
+  "Ultrassom de Mamas": [
+    {
+      name: "Mamas",
+      defaultNormalText: "Mamas com ecotextura glandular e adiposa normal.",
+      findings: [
+        {
+          id: "noduloMama",
+          label: "Nódulo mamário",
+          requiresSize: true,
+          alteredText: "Presença de nódulo mamário.",
+          conclusionText: "Nódulo mamário.",
+        },
+        {
+          id: "cistoMama",
+          label: "Cisto mamário",
+          requiresSize: true,
+          alteredText: "Presença de cisto mamário.",
+          conclusionText: "Cisto mamário.",
+        },
+        {
+          id: "dilatacaoDuctal",
+          label: "Dilatação ductal",
+          requiresSize: true,
+          alteredText: "Presença de dilatação ductal.",
+          conclusionText: "Dilatação ductal.",
+        },
+      ],
+    },
+  ],
+};
 
 const UltrasoundReportGenerator = () => {
   const [doctorName, setDoctorName] = useState("");
@@ -14,8 +216,32 @@ const UltrasoundReportGenerator = () => {
   const [patientDOB, setPatientDOB] = useState("");
   const [patientGender, setPatientGender] = useState<string>("");
   const [examType, setExamType] = useState<string>("");
-  const [examFindings, setExamFindings] = useState("");
   const [generatedReport, setGeneratedReport] = useState("");
+
+  // State to hold the current selection and sizes for findings
+  const [currentFindingsState, setCurrentFindingsState] = useState<
+    Map<string, { isChecked: boolean; size: string }>
+  >(new Map());
+
+  // Reset findings state when examType changes
+  useEffect(() => {
+    setCurrentFindingsState(new Map());
+  }, [examType]);
+
+  const handleFindingChange = (
+    findingId: string,
+    isChecked: boolean,
+    size?: string,
+  ) => {
+    setCurrentFindingsState((prev) => {
+      const newState = new Map(prev);
+      newState.set(findingId, {
+        isChecked,
+        size: size !== undefined ? size : newState.get(findingId)?.size || "",
+      });
+      return newState;
+    });
+  };
 
   const handleGenerateReport = () => {
     let reportText = `LAUDO DE ULTRASSOM\n\n`;
@@ -30,13 +256,55 @@ const UltrasoundReportGenerator = () => {
     reportText += `Gênero: ${patientGender || "[Gênero]"}\n\n`;
 
     reportText += `EXAME:\n`;
-    reportText += `Tipo de Exame: ${examType || "[Tipo de Exame]"}\n`;
-    reportText += `Achados: ${examFindings || "Não foram descritos achados específicos."}\n\n`;
+    reportText += `Tipo de Exame: ${examType || "[Tipo de Exame]"}\n\n`;
 
-    reportText += `CONCLUSÃO: [Conclusão do laudo aqui.]`;
+    reportText += `ACHADOS:\n`;
+    const findingsStatements: string[] = [];
+    const conclusionStatements: string[] = [];
+    const alteredCategories = new Set<string>();
+
+    const currentExamCategories = examDefinitions[examType] || [];
+
+    currentExamCategories.forEach((category) => {
+      let categoryHasAlteredFinding = false;
+      category.findings.forEach((finding) => {
+        const state = currentFindingsState.get(finding.id);
+        if (state?.isChecked) {
+          let statement = finding.alteredText;
+          if (finding.requiresSize && state.size) {
+            statement += ` (Tamanho: ${state.size} mm)`;
+          }
+          findingsStatements.push(statement);
+          if (finding.conclusionText) {
+            conclusionStatements.push(finding.conclusionText);
+          }
+          categoryHasAlteredFinding = true;
+          alteredCategories.add(category.name);
+        }
+      });
+
+      if (!categoryHasAlteredFinding && category.defaultNormalText) {
+        findingsStatements.push(category.defaultNormalText);
+      }
+    });
+
+    if (findingsStatements.length === 0) {
+      reportText += "Não foram descritos achados específicos.\n\n";
+    } else {
+      reportText += findingsStatements.map((s) => `- ${s}`).join("\n") + "\n\n";
+    }
+
+    reportText += `CONCLUSÃO:\n`;
+    if (conclusionStatements.length === 0) {
+      reportText += "Exame sem alterações significativas.\n";
+    } else {
+      reportText += conclusionStatements.map((s) => `- ${s}`).join("\n") + "\n";
+    }
 
     setGeneratedReport(reportText);
   };
+
+  const currentExamCategories = examDefinitions[examType] || [];
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -122,23 +390,61 @@ const UltrasoundReportGenerator = () => {
                     <SelectValue placeholder="Selecione o tipo de exame" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Ultrassom Abdominal Total">Ultrassom Abdominal Total</SelectItem>
-                    <SelectItem value="Ultrassom de Tireoide">Ultrassom de Tireoide</SelectItem>
-                    <SelectItem value="Ultrassom Pélvico">Ultrassom Pélvico</SelectItem>
-                    <SelectItem value="Ultrassom de Mamas">Ultrassom de Mamas</SelectItem>
+                    {Object.keys(examDefinitions).map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="examFindings">Achados do Exame (descrição livre)</Label>
-                <Textarea
-                  id="examFindings"
-                  value={examFindings}
-                  onChange={(e) => setExamFindings(e.target.value)}
-                  placeholder="Descreva os achados do exame aqui, como órgãos normais, alterações, nódulos, etc."
-                  rows={6}
-                />
-              </div>
+
+              {examType && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold mt-4">Achados do Exame</h3>
+                  {currentExamCategories.map((category) => (
+                    <div key={category.name} className="space-y-2 border p-3 rounded-md">
+                      <p className="font-medium">{category.name}:</p>
+                      {category.findings.length > 0 ? (
+                        category.findings.map((finding) => {
+                          const state = currentFindingsState.get(finding.id);
+                          const isChecked = state?.isChecked || false;
+                          const size = state?.size || "";
+
+                          return (
+                            <div key={finding.id} className="flex items-center space-x-2 ml-2">
+                              <Checkbox
+                                id={finding.id}
+                                checked={isChecked}
+                                onCheckedChange={(checked) =>
+                                  handleFindingChange(finding.id, checked as boolean)
+                                }
+                              />
+                              <Label htmlFor={finding.id} className="flex-1">
+                                {finding.label}
+                              </Label>
+                              {finding.requiresSize && isChecked && (
+                                <Input
+                                  type="text"
+                                  placeholder="Tamanho (mm)"
+                                  value={size}
+                                  onChange={(e) =>
+                                    handleFindingChange(finding.id, true, e.target.value)
+                                  }
+                                  className="w-32"
+                                />
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-sm text-gray-500 ml-2">Nenhum achado específico para esta categoria.</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <Button onClick={handleGenerateReport} className="w-full">
                 Gerar Laudo
               </Button>
