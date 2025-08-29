@@ -236,6 +236,15 @@ const conclusionGuidance: { [key: string]: string } = {
   "Exame sem alterações significativas.": "Não há necessidade de condutas adicionais baseadas neste exame."
 };
 
+// Define a interface para o estado de cada achado
+interface FindingState {
+  isChecked: boolean;
+  size: string; // Para achados de instância única
+  laterality: string; // Para achados de instância única
+  quantity: string; // Para achados com quantidade (como string do input)
+  instances: Array<{ size: string; laterality: string }>; // Array de instâncias para achados com quantidade
+}
+
 const UltrasoundReportGenerator = () => {
   const [doctorName, setDoctorName] = useState("");
   const [doctorCRM, setDoctorCRM] = useState("");
@@ -245,17 +254,17 @@ const UltrasoundReportGenerator = () => {
   const [examType, setExamType] = useState<string>("");
   const [generatedReport, setGeneratedReport] = useState("");
 
-  // State to hold the current selection and sizes for findings
+  // State para armazenar a seleção e detalhes dos achados
   const [currentFindingsState, setCurrentFindingsState] = useState<
-    Map<string, { isChecked: boolean; size: string; laterality: string; quantity: string }>
+    Map<string, FindingState>
   >(new Map());
 
-  // Reset findings state when examType changes
+  // Resetar o estado dos achados quando o tipo de exame muda
   useEffect(() => {
     setCurrentFindingsState(new Map());
   }, [examType]);
 
-  // Helper to find a finding definition by its ID across all exam types
+  // Helper para encontrar a definição de um achado pelo ID
   const findFindingDefinitionById = (id: string): FindingDefinition | undefined => {
     for (const examTypeKey in examDefinitions) {
       for (const category of examDefinitions[examTypeKey]) {
@@ -266,7 +275,7 @@ const UltrasoundReportGenerator = () => {
     return undefined;
   };
 
-  // Helper to find the category an ID belongs to for the current examType
+  // Helper para encontrar a categoria à qual um ID de achado pertence no exame atual
   const findCategoryForCurrentExam = (findingId: string): ExamCategory | undefined => {
     const currentExamCategories = examDefinitions[examType] || [];
     for (const category of currentExamCategories) {
@@ -277,55 +286,136 @@ const UltrasoundReportGenerator = () => {
     return undefined;
   };
 
-  const handleFindingChange = (
-    findingId: string,
-    isChecked: boolean,
-    size?: string,
-    laterality?: string,
-    quantity?: string,
-  ) => {
+  // Handler para mudança do checkbox principal de um achado
+  const handleCheckboxChange = (findingId: string, checked: boolean) => {
     setCurrentFindingsState((prev) => {
       const newState = new Map(prev);
       const category = findCategoryForCurrentExam(findingId);
       const currentFindingDef = findFindingDefinitionById(findingId);
 
       if (!category || !currentFindingDef) {
-        // If category or finding definition not found, just update the specific finding
         newState.set(findingId, {
-          isChecked,
-          size: size !== undefined ? size : prev.get(findingId)?.size || "",
-          laterality: laterality !== undefined ? laterality : prev.get(findingId)?.laterality || "",
-          quantity: quantity !== undefined ? quantity : prev.get(findingId)?.quantity || "",
+          ...prev.get(findingId)!,
+          isChecked: checked,
         });
         return newState;
       }
 
-      const normalFindingId = category.findings[0]?.id; // Assuming 'Normal' is always the first finding
+      const normalFindingId = category.findings[0]?.id; // Assumindo que 'Normal' é sempre o primeiro achado
 
-      if (isChecked) {
+      if (checked) {
         if (findingId === normalFindingId) {
-          // If 'Normal' is checked, deselect all other findings in this category
+          // Se 'Normal' for marcado, desmarcar todos os outros achados nesta categoria
           category.findings.forEach(f => {
             if (f.id !== normalFindingId) {
-              newState.set(f.id, { isChecked: false, size: "", laterality: "", quantity: "" });
+              newState.set(f.id, { isChecked: false, size: "", laterality: "", quantity: "", instances: [] });
             }
           });
         } else {
-          // If a non-normal finding is checked, deselect 'Normal' in this category
+          // Se um achado não-normal for marcado, desmarcar 'Normal' nesta categoria
           if (normalFindingId && newState.get(normalFindingId)?.isChecked) {
-            newState.set(normalFindingId, { isChecked: false, size: "", laterality: "", quantity: "" });
+            newState.set(normalFindingId, { isChecked: false, size: "", laterality: "", quantity: "", instances: [] });
           }
         }
       }
 
-      // Set the current finding's state
+      // Inicializar ou atualizar o estado do achado
+      const existingState = newState.get(findingId) || { isChecked: false, size: "", laterality: "", quantity: "", instances: [] };
       newState.set(findingId, {
-        isChecked,
-        size: size !== undefined ? size : prev.get(findingId)?.size || "",
-        laterality: laterality !== undefined ? laterality : prev.get(findingId)?.laterality || "",
-        quantity: quantity !== undefined ? quantity : prev.get(findingId)?.quantity || "",
+        ...existingState,
+        isChecked: checked,
+        // Resetar detalhes se desmarcado
+        ...(checked ? {} : { size: "", laterality: "", quantity: "", instances: [] }),
       });
 
+      // Se for um novo check para um achado baseado em quantidade, inicializar com uma instância
+      if (checked && currentFindingDef.hasQuantity && (!existingState.instances || existingState.instances.length === 0)) {
+        newState.get(findingId)!.instances = [{ size: "", laterality: "" }];
+        newState.get(findingId)!.quantity = "1"; // Quantidade padrão para 1
+      }
+
+      return newState;
+    });
+  };
+
+  // Handler para mudança na quantidade de um achado
+  const handleQuantityChange = (findingId: string, newQuantityStr: string) => {
+    setCurrentFindingsState((prev) => {
+      const newState = new Map(prev);
+      const state = newState.get(findingId);
+      if (!state) return prev;
+
+      const newQuantity = parseInt(newQuantityStr, 10);
+      const currentInstances = state.instances || [];
+      let updatedInstances = [...currentInstances];
+
+      if (isNaN(newQuantity) || newQuantity <= 0) {
+        // Se a quantidade for inválida ou 0, limpar instâncias e definir a string da quantidade para "0" ou ""
+        updatedInstances = [];
+        newState.set(findingId, {
+          ...state,
+          quantity: newQuantityStr === "" ? "" : "0",
+          instances: updatedInstances,
+        });
+        return newState;
+      } else if (newQuantity > currentInstances.length) {
+        // Adicionar novas instâncias
+        for (let i = currentInstances.length; i < newQuantity; i++) {
+          updatedInstances.push({ size: "", laterality: "" });
+        }
+      } else if (newQuantity < currentInstances.length) {
+        // Remover instâncias
+        updatedInstances = updatedInstances.slice(0, newQuantity);
+      }
+
+      newState.set(findingId, {
+        ...state,
+        quantity: newQuantityStr,
+        instances: updatedInstances,
+      });
+      return newState;
+    });
+  };
+
+  // Handler para mudança nos detalhes (tamanho/lateralidade) de uma instância específica
+  const handleInstanceDetailChange = (
+    findingId: string,
+    instanceIndex: number,
+    field: 'size' | 'laterality',
+    value: string,
+  ) => {
+    setCurrentFindingsState((prev) => {
+      const newState = new Map(prev);
+      const state = newState.get(findingId);
+      if (!state || !state.instances) return prev;
+
+      const updatedInstances = state.instances.map((instance, idx) =>
+        idx === instanceIndex ? { ...instance, [field]: value } : instance
+      );
+
+      newState.set(findingId, {
+        ...state,
+        instances: updatedInstances,
+      });
+      return newState;
+    });
+  };
+
+  // Handler para mudança nos detalhes (tamanho/lateralidade) de um achado de instância única
+  const handleSingleDetailChange = (
+    findingId: string,
+    field: 'size' | 'laterality',
+    value: string,
+  ) => {
+    setCurrentFindingsState((prev) => {
+      const newState = new Map(prev);
+      const state = newState.get(findingId);
+      if (!state) return prev;
+
+      newState.set(findingId, {
+        ...state,
+        [field]: value,
+      });
       return newState;
     });
   };
@@ -348,7 +438,7 @@ const UltrasoundReportGenerator = () => {
     reportText += `ACHADOS:\n`;
     const findingsStatements: string[] = [];
     const conclusionStatements: string[] = [];
-    const uniqueConclusionTexts = new Set<string>(); // To avoid duplicate conclusion texts
+    const uniqueConclusionTexts = new Set<string>(); // Para evitar textos de conclusão duplicados
 
     const currentExamCategories = examDefinitions[examType] || [];
 
@@ -359,21 +449,35 @@ const UltrasoundReportGenerator = () => {
       category.findings.forEach((finding) => {
         const state = currentFindingsState.get(finding.id);
         if (state?.isChecked) {
-          if (finding.id === category.findings[0]?.id) { // Check if it's the 'Normal' option
+          if (finding.id === category.findings[0]?.id) { // Verifica se é a opção 'Normal'
             categoryHasNormalFindingChecked = true;
           } else {
             categoryHasAlteredFinding = true;
-            let statement = finding.alteredText;
-            if (state.quantity) {
-              statement = `${state.quantity} ${statement}`;
+            if (finding.hasQuantity && state.instances && state.instances.length > 0) {
+              state.instances.forEach((instance) => {
+                let statement = finding.alteredText;
+                let instanceDetails = [];
+                if (instance.laterality) {
+                  instanceDetails.push(instance.laterality);
+                }
+                if (finding.requiresSize && instance.size) {
+                  instanceDetails.push(`Tamanho: ${instance.size} mm`);
+                }
+                if (instanceDetails.length > 0) {
+                  statement += ` (${instanceDetails.join(", ")})`;
+                }
+                findingsStatements.push(statement);
+              });
+            } else { // Achado de instância única
+              let statement = finding.alteredText;
+              if (state.laterality) {
+                statement += ` (${state.laterality})`;
+              }
+              if (finding.requiresSize && state.size) {
+                statement += ` (Tamanho: ${state.size} mm)`;
+              }
+              findingsStatements.push(statement);
             }
-            if (state.laterality) {
-              statement += ` (${state.laterality})`;
-            }
-            if (finding.requiresSize && state.size) {
-              statement += ` (Tamanho: ${state.size} mm)`;
-            }
-            findingsStatements.push(statement);
             if (finding.conclusionText) {
               uniqueConclusionTexts.add(finding.conclusionText);
             }
@@ -381,7 +485,7 @@ const UltrasoundReportGenerator = () => {
         }
       });
 
-      // If no altered findings were checked, and 'Normal' was checked, add the default normal text
+      // Se nenhum achado alterado foi marcado, e 'Normal' foi marcado, adicionar o texto normal padrão
       if (!categoryHasAlteredFinding && categoryHasNormalFindingChecked) {
         findingsStatements.push(category.defaultNormalText);
         uniqueConclusionTexts.add(category.findings[0]?.conclusionText || "Exame sem alterações significativas.");
@@ -404,7 +508,7 @@ const UltrasoundReportGenerator = () => {
       reportText += conclusionStatements.map((s) => `- ${s}`).join("\n") + "\n";
     }
 
-    // Add guidance based on conclusions
+    // Adicionar orientações com base nas conclusões
     if (conclusionStatements.length > 0) {
       reportText += `\nORIENTAÇÕES:\n`;
       const uniqueGuidance = new Set<string>();
@@ -525,7 +629,7 @@ const UltrasoundReportGenerator = () => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold mt-4">Achados do Exame</h3>
               {currentExamCategories.map((category) => {
-                const normalFindingId = category.findings[0]?.id; // Assuming 'Normal' is always the first finding
+                const normalFindingId = category.findings[0]?.id; // Assumindo que 'Normal' é sempre o primeiro achado
                 const isNormalChecked = currentFindingsState.get(normalFindingId)?.isChecked;
                 const hasOtherFindingsChecked = category.findings.some(f => f.id !== normalFindingId && currentFindingsState.get(f.id)?.isChecked);
 
@@ -539,8 +643,9 @@ const UltrasoundReportGenerator = () => {
                         const size = state?.size || "";
                         const laterality = state?.laterality || "";
                         const quantity = state?.quantity || "";
+                        const instances = state?.instances || [];
 
-                        // Only show 'Normal' if no other findings are checked, or if it's currently checked
+                        // Apenas mostrar 'Normal' se nenhum outro achado estiver marcado, ou se ele estiver marcado
                         if (finding.id === normalFindingId && hasOtherFindingsChecked && !isChecked) {
                           return null;
                         }
@@ -551,7 +656,7 @@ const UltrasoundReportGenerator = () => {
                               id={finding.id}
                               checked={isChecked}
                               onCheckedChange={(checked) =>
-                                handleFindingChange(finding.id, checked as boolean)
+                                handleCheckboxChange(finding.id, checked as boolean)
                               }
                             />
                             <Label htmlFor={finding.id} className="flex-1 min-w-[120px]">
@@ -559,40 +664,82 @@ const UltrasoundReportGenerator = () => {
                             </Label>
                             {isChecked && (
                               <>
-                                {finding.hasQuantity && (
-                                  <Input
-                                    type="number"
-                                    placeholder="Qtd."
-                                    value={quantity}
-                                    onChange={(e) =>
-                                      handleFindingChange(finding.id, true, size, laterality, e.target.value)
-                                    }
-                                    className="w-20"
-                                    min="1"
-                                  />
-                                )}
-                                {finding.hasLaterality && (
-                                  <Select value={laterality} onValueChange={(value) => handleFindingChange(finding.id, true, size, value, quantity)}>
-                                    <SelectTrigger className="w-[120px]">
-                                      <SelectValue placeholder="Lado" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="Direito">Direito</SelectItem>
-                                      <SelectItem value="Esquerdo">Esquerdo</SelectItem>
-                                      <SelectItem value="Ambos">Ambos</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                                {finding.requiresSize && (
-                                  <Input
-                                    type="text"
-                                    placeholder="Tamanho (mm)"
-                                    value={size}
-                                    onChange={(e) =>
-                                      handleFindingChange(finding.id, true, e.target.value, laterality, quantity)
-                                    }
-                                    className="w-32"
-                                  />
+                                {finding.hasQuantity ? (
+                                  <div className="flex flex-col gap-2 w-full">
+                                    <Input
+                                      type="number"
+                                      placeholder="Qtd."
+                                      value={quantity}
+                                      onChange={(e) => handleQuantityChange(finding.id, e.target.value)}
+                                      className="w-20"
+                                      min="1"
+                                    />
+                                    {instances.map((instance, idx) => (
+                                      <div key={idx} className="flex items-center gap-2 ml-4">
+                                        <span className="text-sm text-gray-600">Item {idx + 1}:</span>
+                                        {finding.hasLaterality && (
+                                          <Select
+                                            value={instance.laterality}
+                                            onValueChange={(value) =>
+                                              handleInstanceDetailChange(finding.id, idx, 'laterality', value)
+                                            }
+                                          >
+                                            <SelectTrigger className="w-[120px]">
+                                              <SelectValue placeholder="Lado" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="Direito">Direito</SelectItem>
+                                              <SelectItem value="Esquerdo">Esquerdo</SelectItem>
+                                              <SelectItem value="Ambos">Ambos</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        )}
+                                        {finding.requiresSize && (
+                                          <Input
+                                            type="text"
+                                            placeholder="Tamanho (mm)"
+                                            value={instance.size}
+                                            onChange={(e) =>
+                                              handleInstanceDetailChange(finding.id, idx, 'size', e.target.value)
+                                            }
+                                            className="w-32"
+                                          />
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  // Lógica existente para achados de instância única
+                                  <>
+                                    {finding.hasLaterality && (
+                                      <Select
+                                        value={laterality}
+                                        onValueChange={(value) =>
+                                          handleSingleDetailChange(finding.id, 'laterality', value)
+                                        }
+                                      >
+                                        <SelectTrigger className="w-[120px]">
+                                          <SelectValue placeholder="Lado" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="Direito">Direito</SelectItem>
+                                          <SelectItem value="Esquerdo">Esquerdo</SelectItem>
+                                          <SelectItem value="Ambos">Ambos</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    )}
+                                    {finding.requiresSize && (
+                                      <Input
+                                        type="text"
+                                        placeholder="Tamanho (mm)"
+                                        value={size}
+                                        onChange={(e) =>
+                                          handleSingleDetailChange(finding.id, 'size', e.target.value)
+                                        }
+                                        className="w-32"
+                                      />
+                                    )}
+                                  </>
                                 )}
                               </>
                             )}
