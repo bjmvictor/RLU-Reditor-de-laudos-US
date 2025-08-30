@@ -7,11 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { ThemeToggle } from "@/components/ThemeToggle"; // Import ThemeToggle
-import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
-import { saveReport } from "@/lib/report-storage"; // Import saveReport
-import { Report } from "@/lib/report-types"; // Import Report type
-import { v4 as uuidv4 } from 'uuid'; // Import uuid for unique IDs
 
 interface FindingDefinition {
   id: string;
@@ -259,7 +254,6 @@ interface FindingState {
 }
 
 const UltrasoundReportGenerator = () => {
-  const navigate = useNavigate(); // Initialize useNavigate
   const [doctorName, setDoctorName] = useState("");
   const [doctorCRM, setDoctorCRM] = useState("");
   const [patientName, setPatientName] = useState("");
@@ -538,40 +532,15 @@ const UltrasoundReportGenerator = () => {
       }
     }
 
+
     setGeneratedReport(reportText);
-  };
-
-  const handleSaveReport = () => {
-    if (!generatedReport) {
-      alert("Por favor, gere um laudo antes de salvar.");
-      return;
-    }
-
-    const newReport: Report = {
-      id: uuidv4(), // Generate a unique ID
-      doctorName: doctorName,
-      doctorCRM: doctorCRM,
-      patientName: patientName,
-      patientDOB: patientDOB,
-      patientGender: patientGender,
-      examType: examType,
-      generatedText: generatedReport,
-      createdAt: new Date().toISOString(),
-    };
-
-    saveReport(newReport);
-    alert("Laudo salvo com sucesso!");
-    navigate("/history"); // Navigate to history page after saving
   };
 
   const currentExamCategories = examDefinitions[examType] || [];
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-center flex-1">Gerador de Laudos de Ultrassom</h1>
-        <ThemeToggle />
-      </div>
+      <h1 className="text-3xl font-bold text-center mb-6">Gerador de Laudos de Ultrassom</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         {/* Dados do Médico */}
@@ -820,10 +789,8 @@ const UltrasoundReportGenerator = () => {
             className="font-mono"
           />
           <div className="mt-4 space-x-2">
-            <Button onClick={handleSaveReport}>Salvar Laudo</Button>
-            <Link to="/history">
-              <Button variant="outline">Ver Histórico</Button>
-            </Link>
+            <Button onClick={() => alert("Funcionalidade de Salvar ainda não implementada.")}>Salvar Laudo</Button>
+            <Button onClick={() => alert("Funcionalidade de Baixar PDF ainda não implementada.")}>Baixar PDF</Button>
           </div>
         </CardContent>
       </Card>
