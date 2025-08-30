@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MadeWithDyad } from "@/components/made-with-dyad";
+import { ThemeToggle } from "@/components/ThemeToggle"; // Import ThemeToggle
 
 interface FindingDefinition {
   id: string;
@@ -540,7 +541,10 @@ const UltrasoundReportGenerator = () => {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <h1 className="text-3xl font-bold text-center mb-6">Gerador de Laudos de Ultrassom</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-center flex-grow">Gerador de Laudos de Ultrassom</h1>
+        <ThemeToggle />
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         {/* Dados do Médico */}
