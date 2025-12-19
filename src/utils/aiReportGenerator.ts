@@ -2,7 +2,10 @@
  * AI-powered Report Generator using Local Ollama
  * Generates professional ultrasound reports with medical terminology
  * Runs locally without internet dependency
+ * Enhanced with Compêndio da Radiologia knowledge base
  */
+
+import KNOWLEDGE_BASE from '@/data/knowledgeBase';
 
 export interface PatientData {
   name: string;
@@ -111,6 +114,7 @@ async function generateReportViaOllama(patientData: PatientData): Promise<Genera
 /**
  * Builds a specialized prompt for medical report generation
  * Structured to generate professional Portuguese medical terminology
+ * Enhanced with knowledge base context
  */
 function buildPrompt(patientData: PatientData): string {
   const findingsText = patientData.findings.join(", ");
@@ -118,22 +122,39 @@ function buildPrompt(patientData: PatientData): string {
   const genderText = patientData.gender ? `, ${patientData.gender}` : "";
   const indicationText = patientData.clinicalIndication || "Avaliação de rotina";
 
+  // Get relevant knowledge base context
+  const knowledgeContext = getKnowledgeBaseContext(patientData.examType, patientData.findings);
+
   // Medical context prompt to guide the AI
-  const medicalContext = `Você é um radiologista experiente e especializado em ultrassonografia ${patientData.examType.toLowerCase()}. 
-Sua tarefa é gerar um laudo técnico, profissional e detalhado em português.
+  const medicalContext = `Você é um radiologista experiente e especializado em ultrassonografia, baseando-se no Compêndio da Radiologia Brasileiro. 
+Sua tarefa é gerar um laudo técnico, profissional e detalhado em português seguindo padrões médicos brasileiros.
 
 Instruções importantes:
-- Utilize terminologia médica apropriada e precisa
+- Utilize EXATAMENTE a terminologia médica do Compêndio da Radiologia
 - Estruture o laudo em TÉCNICA, RELATÓRIO e CONCLUSÃO
-- Na TÉCNICA: descreva brevemente o método e equipamento utilizado
-- No RELATÓRIO: descreva os achados de forma organizada, usando linguagem técnica
-- Na CONCLUSÃO: resuma os achados principais com opinião clínica
-- Use termos ultrassonográficos como: anecóico, hipoecoico, hiperecoico, isoecóico, tópico, ectópico, etc.
-- Mantenha tom profissional e impessoal
-- Se houver achados anormais, descreva com precisão
-- Se tudo estiver normal, afirme explicitamente a normalidade`;
+- Na TÉCNICA: descreva o transdutor e modalidade utilizada
+- No RELATÓRIO: descreva os achados de forma organizada por órgão/estrutura
+- Na CONCLUSÃO: resuma os achados principais com diagnóstico ultrassonográfico
+- Use termos ultrassonográficos como: anecóico, hipoecogênico, hiperecogênico, isoecogênico, heterogêneo, homogêneo
+- Descreva contornos (regulares/irregulares/serrilhados), dimensões (normais/aumentadas/reduzidas), ecotextura
+- Mantenha tom profissional e técnico
+- Para achados normais, use frases como "sem alterações", "dentro dos padrões habituais"
+- Para alterações, seja específico em localização, tamanho, características ecográficas`;
 
-  return `${medicalContext}
+  // Add knowledge base examples if available
+  let knowledgeExamples = "";
+  if (knowledgeContext.length > 0) {
+    knowledgeExamples = `\n\nCONHECIMENTO MÉDICO (Compêndio da Radiologia):
+Use EXATAMENTE estas frases técnicas quando descrever os achados:
+
+${knowledgeContext.map(k => `- ${k.label}: "${k.alteredText}"`).join('\n')}
+
+${knowledgeContext.filter(k => k.conclusionText).map(k => 
+  `  Conclusão para ${k.label}: "${k.conclusionText}"`
+).join('\n')}`;
+  }
+
+  return `${medicalContext}${knowledgeExamples}
 
 DADOS DO PACIENTE E EXAME:
 - Tipo de exame: ${patientData.examType}
@@ -142,10 +163,54 @@ DADOS DO PACIENTE E EXAME:
 - Indicação clínica: ${indicationText}
 - Achados principais: ${findingsText}
 
-GERE AGORA UM LAUDO COMPLETO E PROFISSIONAL:
+GERE AGORA UM LAUDO COMPLETO E PROFISSIONAL USANDO AS FRASES TÉCNICAS FORNECIDAS:
 
 TÉCNICA:
 `;
+}
+
+/**
+ * Extracts relevant knowledge base context for the exam type and findings
+ */
+function getKnowledgeBaseContext(examType: string, findings: string[]): Array<{
+  label: string;
+  alteredText: string;
+  conclusionText?: string;
+}> {
+  const relevantKnowledge: Array<{
+    label: string;
+    alteredText: string;
+    conclusionText?: string;
+  }> = [];
+
+  // Search through knowledge base for matching exam types and findings
+  for (const category of KNOWLEDGE_BASE) {
+    for (const region of category.regions) {
+      for (const organ of region.organs) {
+        for (const finding of organ.findings) {
+          // Match by exam type or finding keywords
+          const examLower = examType.toLowerCase();
+          const findingLower = finding.label.toLowerCase();
+          
+          const isRelevant = 
+            findings.some(f => f.toLowerCase().includes(findingLower)) ||
+            examLower.includes(region.name.toLowerCase()) ||
+            examLower.includes(organ.name.toLowerCase());
+          
+          if (isRelevant) {
+            relevantKnowledge.push({
+              label: `${organ.name} - ${finding.label}`,
+              alteredText: finding.alteredText,
+              conclusionText: finding.conclusionText
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Limit to top 5 most relevant to avoid token overflow
+  return relevantKnowledge.slice(0, 5);
 }
 
 /**
