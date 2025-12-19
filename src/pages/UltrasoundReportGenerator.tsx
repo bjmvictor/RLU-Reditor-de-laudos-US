@@ -8,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { ThemeToggle } from "@/components/ThemeToggle"; // Import ThemeToggle
+import { saveReport } from "@/utils/storage";
+import { toast } from "sonner";
+import jsPDF from "jspdf";
 
 interface FindingDefinition {
   id: string;
@@ -262,6 +265,8 @@ const UltrasoundReportGenerator = () => {
   const [patientGender, setPatientGender] = useState<string>("");
   const [examType, setExamType] = useState<string>("");
   const [generatedReport, setGeneratedReport] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   // State para armazenar a seleção e detalhes dos achados
   const [currentFindingsState, setCurrentFindingsState] = useState<
@@ -537,6 +542,60 @@ const UltrasoundReportGenerator = () => {
     setGeneratedReport(reportText);
   };
 
+  const handleSaveReport = () => {
+    if (!generatedReport.trim()) {
+      toast.error("Gere o laudo antes de salvar.");
+      return;
+    }
+    try {
+      setSaving(true);
+      const metaTitle = `${patientName || "Paciente"} - ${examType || "Ultrassom"}`;
+      const item = saveReport(generatedReport, metaTitle);
+      toast.success("Laudo salvo com sucesso!", { description: item.title });
+    } catch (e) {
+      toast.error("Falha ao salvar o laudo.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!generatedReport.trim()) {
+      toast.error("Gere o laudo antes de baixar em PDF.");
+      return;
+    }
+    setDownloading(true);
+    try {
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const margin = 40;
+      const maxWidth = doc.internal.pageSize.getWidth() - margin * 2;
+      doc.setFont("courier", "normal");
+      doc.setFontSize(11);
+
+      const lines = doc.splitTextToSize(generatedReport, maxWidth);
+      let y = margin;
+      const lineHeight = 14;
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      lines.forEach((line: string) => {
+        if (y + lineHeight > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+        }
+        doc.text(line, margin, y);
+        y += lineHeight;
+      });
+
+      const filename = `Laudo-${(patientName || "Paciente").replace(/\s+/g, "_")}-${new Date().toISOString().slice(0,10)}.pdf`;
+      doc.save(filename);
+      toast.success("PDF gerado com sucesso!");
+    } catch (e) {
+      toast.error("Falha ao gerar PDF.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const currentExamCategories = examDefinitions[examType] || [];
 
   return (
@@ -793,8 +852,8 @@ const UltrasoundReportGenerator = () => {
             className="font-mono"
           />
           <div className="mt-4 space-x-2">
-            <Button onClick={() => alert("Funcionalidade de Salvar ainda não implementada.")}>Salvar Laudo</Button>
-            <Button onClick={() => alert("Funcionalidade de Baixar PDF ainda não implementada.")}>Baixar PDF</Button>
+            <Button onClick={handleSaveReport} disabled={saving}>{saving ? "Salvando..." : "Salvar Laudo"}</Button>
+            <Button onClick={handleDownloadPDF} disabled={downloading}>{downloading ? "Gerando..." : "Baixar PDF"}</Button>
           </div>
         </CardContent>
       </Card>
