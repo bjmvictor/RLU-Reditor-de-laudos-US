@@ -1,4 +1,3 @@
-import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
@@ -32,7 +31,6 @@ const Index = () => {
             </Button>
           </Link>
         </div>
-        <MadeWithDyad />
       </div>
     </div>
   );

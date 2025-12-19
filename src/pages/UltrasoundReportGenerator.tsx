@@ -951,7 +951,6 @@ const UltrasoundReportGenerator = () => {
           )}
         </CardContent>
       </Card>
-      <MadeWithDyad />
       </div>
     </div>
   );
