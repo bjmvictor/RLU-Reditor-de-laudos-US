@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { ThemeToggle } from "@/components/ThemeToggle"; // Import ThemeToggle
-import { saveReport } from "@/utils/storage";
+import { saveReport, listReports, getReport, deleteReport, type StoredReport } from "@/utils/storage";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 
@@ -267,6 +267,7 @@ const UltrasoundReportGenerator = () => {
   const [generatedReport, setGeneratedReport] = useState("");
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [reports, setReports] = useState<StoredReport[]>([]);
 
   // State para armazenar a seleção e detalhes dos achados
   const [currentFindingsState, setCurrentFindingsState] = useState<
@@ -277,6 +278,11 @@ const UltrasoundReportGenerator = () => {
   useEffect(() => {
     setCurrentFindingsState(new Map());
   }, [examType]);
+
+  // Carrega lista de laudos salvos ao iniciar
+  useEffect(() => {
+    setReports(listReports());
+  }, []);
 
   // Helper para encontrar a definição de um achado pelo ID
   const findFindingDefinitionById = (id: string): FindingDefinition | undefined => {
@@ -552,11 +558,33 @@ const UltrasoundReportGenerator = () => {
       const metaTitle = `${patientName || "Paciente"} - ${examType || "Ultrassom"}`;
       const item = saveReport(generatedReport, metaTitle);
       toast.success("Laudo salvo com sucesso!", { description: item.title });
+      setReports(listReports());
     } catch (e) {
       toast.error("Falha ao salvar o laudo.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleRefreshReports = () => {
+    setReports(listReports());
+    toast.info("Lista atualizada");
+  };
+
+  const handleDeleteReport = (id: string) => {
+    deleteReport(id);
+    setReports(listReports());
+    toast.success("Laudo excluído");
+  };
+
+  const handleLoadReport = (id: string) => {
+    const r = getReport(id);
+    if (!r) {
+      toast.error("Laudo não encontrado");
+      return;
+    }
+    setGeneratedReport(r.content);
+    toast.success("Laudo carregado", { description: r.title });
   };
 
   const handleDownloadPDF = () => {
@@ -855,6 +883,37 @@ const UltrasoundReportGenerator = () => {
             <Button onClick={handleSaveReport} disabled={saving}>{saving ? "Salvando..." : "Salvar Laudo"}</Button>
             <Button onClick={handleDownloadPDF} disabled={downloading}>{downloading ? "Gerando..." : "Baixar PDF"}</Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Meus Laudos */}
+      <Card className="col-span-full">
+        <CardHeader>
+          <CardTitle>Meus Laudos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-gray-500">{reports.length} salvo(s)</span>
+            <Button variant="secondary" onClick={handleRefreshReports}>Atualizar lista</Button>
+          </div>
+          {reports.length === 0 ? (
+            <p className="text-sm text-gray-500">Nenhum laudo salvo ainda.</p>
+          ) : (
+            <div className="space-y-2">
+              {reports.map((r) => (
+                <div key={r.id} className="flex items-center justify-between border rounded-md p-2">
+                  <div className="mr-2">
+                    <p className="font-medium leading-tight">{r.title}</p>
+                    <p className="text-xs text-gray-500">{new Date(r.createdAt).toLocaleString()}</p>
+                  </div>
+                  <div className="space-x-2">
+                    <Button size="sm" onClick={() => handleLoadReport(r.id)}>Carregar</Button>
+                    <Button size="sm" variant="destructive" onClick={() => handleDeleteReport(r.id)}>Excluir</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
       <MadeWithDyad />
