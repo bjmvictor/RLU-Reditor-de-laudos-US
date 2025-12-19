@@ -1,5 +1,6 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "flowus-reditor-de-laudos",
+  "description": "FlowUS - Reditor de Laudos de Ultrassonografia",
   "private": true,
   "version": "0.0.0",
   "type": "module",

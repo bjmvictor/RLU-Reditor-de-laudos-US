@@ -542,7 +542,7 @@ const UltrasoundReportGenerator = () => {
   return (
     <div className="container mx-auto p-4 space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-center flex-grow">Gerador de Laudos de Ultrassom</h1>
+        <h1 className="text-3xl font-bold text-center flex-grow">FlowUS - Reditor de Laudos</h1>
         <ThemeToggle />
       </div>
 
