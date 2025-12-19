@@ -6,9 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MadeWithDyad } from "@/components/made-with-dyad";
-import { ThemeToggle } from "@/components/ThemeToggle"; // Import ThemeToggle
+import Navbar from "@/components/Navbar";
 import { saveReport, listReports, getReport, deleteReport, type StoredReport } from "@/utils/storage";
+import { getSettings } from "@/utils/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 
@@ -258,8 +259,9 @@ interface FindingState {
 }
 
 const UltrasoundReportGenerator = () => {
-  const [doctorName, setDoctorName] = useState("");
-  const [doctorCRM, setDoctorCRM] = useState("");
+  const { user } = useAuth();
+  const [doctorName, setDoctorName] = useState(user?.name || "");
+  const [doctorCRM, setDoctorCRM] = useState(user?.crm || "");
   const [patientName, setPatientName] = useState("");
   const [patientDOB, setPatientDOB] = useState("");
   const [patientGender, setPatientGender] = useState<string>("");
@@ -594,26 +596,62 @@ const UltrasoundReportGenerator = () => {
     }
     setDownloading(true);
     try {
+      const settings = getSettings();
       const doc = new jsPDF({ unit: "pt", format: "a4" });
-      const margin = 40;
-      const maxWidth = doc.internal.pageSize.getWidth() - margin * 2;
-      doc.setFont("courier", "normal");
-      doc.setFontSize(11);
-
-      const lines = doc.splitTextToSize(generatedReport, maxWidth);
-      let y = margin;
-      const lineHeight = 14;
+      const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 50;
+      const maxWidth = pageWidth - margin * 2;
+      let currentPage = 1;
+
+      const addHeader = () => {
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(settings.primaryColor);
+        doc.text(settings.unitName, pageWidth / 2, 30, { align: "center" });
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor("#555");
+        doc.text(settings.address, pageWidth / 2, 45, { align: "center" });
+        doc.text(`Tel: ${settings.phone}`, pageWidth / 2, 57, { align: "center" });
+        doc.setDrawColor("#ccc");
+        doc.line(margin, 65, pageWidth - margin, 65);
+      };
+
+      const addFooter = () => {
+        doc.setDrawColor("#ccc");
+        doc.line(margin, pageHeight - 50, pageWidth - margin, pageHeight - 50);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor("#777");
+        doc.text(`Página ${currentPage}`, pageWidth / 2, pageHeight - 35, { align: "center" });
+        doc.setFont("helvetica", "bold");
+        doc.text("Assinatura Digital:", margin, pageHeight - 25);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${doctorName || "[Médico]"} - CRM: ${doctorCRM || "[CRM]"}`, margin, pageHeight - 15);
+      };
+
+      addHeader();
+      doc.setFont("courier", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor("#000");
+      const lines = doc.splitTextToSize(generatedReport, maxWidth);
+      let y = 80;
+      const lineHeight = 13;
 
       lines.forEach((line: string) => {
-        if (y + lineHeight > pageHeight - margin) {
+        if (y + lineHeight > pageHeight - 60) {
+          addFooter();
           doc.addPage();
-          y = margin;
+          currentPage++;
+          addHeader();
+          y = 80;
         }
         doc.text(line, margin, y);
         y += lineHeight;
       });
 
+      addFooter();
       const filename = `Laudo-${(patientName || "Paciente").replace(/\s+/g, "_")}-${new Date().toISOString().slice(0,10)}.pdf`;
       doc.save(filename);
       toast.success("PDF gerado com sucesso!");
@@ -627,14 +665,11 @@ const UltrasoundReportGenerator = () => {
   const currentExamCategories = examDefinitions[examType] || [];
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-center flex-grow">FlowUS - Reditor de Laudos</h1>
-        <ThemeToggle />
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <Navbar />
+      <div className="container mx-auto p-6 space-y-6">
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* Dados do Médico */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">{/* Dados do Médico */}
         <Card>
           <CardHeader>
             <CardTitle>Dados do Médico</CardTitle>
@@ -917,6 +952,7 @@ const UltrasoundReportGenerator = () => {
         </CardContent>
       </Card>
       <MadeWithDyad />
+      </div>
     </div>
   );
 };
