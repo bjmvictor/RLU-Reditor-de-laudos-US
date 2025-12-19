@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import Navbar from "@/components/Navbar";
+import { AIReportGenerator } from "@/components/AIReportGenerator";
 import { saveReport, listReports, getReport, deleteReport, type StoredReport } from "@/utils/storage";
 import { getSettings } from "@/utils/auth";
 import { useAuth } from "@/contexts/AuthContext";
@@ -895,9 +896,26 @@ const UltrasoundReportGenerator = () => {
             </div>
           )}
 
+          {/* AI Report Generator - antes do botão manual */}
+          {examType && currentFindingsState.size > 0 && (
+            <AIReportGenerator
+              examType={examType}
+              patientName={patientName}
+              patientAge={patientAge ? parseInt(patientAge) : undefined}
+              patientGender={patientGender}
+              clinicalIndication={clinicalIndication}
+              findings={Array.from(currentFindingsState.values())
+                .filter((f) => f.isChecked)
+                .map((f) => f.label)}
+              onReportGenerated={(report) => {
+                const formattedReport = `TÉCNICA:\n${report.technique}\n\nRELATÓRIO:\n${report.report}\n\nCONCLUSÃO:\n${report.conclusion}`;
+                setGeneratedReport(formattedReport);
+              }}
+            />
+          )}
+
           <Button onClick={handleGenerateReport} className="w-full">
-            Gerar Laudo
-          </Button>
+            Gerar Laudo (Modo Manual)</Button>
         </CardContent>
       </Card>
 
